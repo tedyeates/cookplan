@@ -4,7 +4,8 @@ environs==11.0.0
 idna==3.7
 marshmallow==3.21.2
 packaging==24.0
+pathlib==1.0.1
 python-dotenv==1.0.1
 requests==2.31.0
-todoist_api_python==2.1.4
+todoist_api_python==2.1.5
 urllib3==2.2.1
