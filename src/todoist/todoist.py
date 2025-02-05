@@ -3,6 +3,7 @@ import logging
 from os.path import dirname as up, join
 from typing import Dict, List
 from environs import Env
+from requests import HTTPError
 from todoist_api_python.api import TodoistAPI, Project, Section
 
 from src.cooklang.aisle_parser import AisleParser
@@ -14,6 +15,8 @@ TASKS = 'shopping_list'
 CONFIGS_BASE = join(up(up(__file__)), 'configs')
 TODOIST_CONF = join(CONFIGS_BASE, 'todoist.json')
 AISLE_CONF = join(CONFIGS_BASE, 'aisle.conf')
+
+UNIT_SEPARATOR = '|'
 
 class Todoist:
     project: Project = None
@@ -31,6 +34,8 @@ class Todoist:
         self.logger = logging.getLogger(__name__)
         
         self.load_progress()
+        if TASKS not in self.save_values:
+            self.save_values[TASKS] = []
         
     
     def load_progress(self) -> str:
@@ -70,11 +75,9 @@ class Todoist:
 
     def create_shopping_tasks(self, shopping_items):
         for shopping_item in shopping_items:
-            unit = ''
-            if 'unit' in shopping_item:
-                unit = shopping_item['unit']
-                
-            description = f'{shopping_item["quantity"]} {unit}'
+            description = shopping_item['quantity']
+            if 'unit' in shopping_item and shopping_item['unit'] != '':
+                description += UNIT_SEPARATOR + shopping_item['unit']
 
             task = self.session.add_task(
                 content=shopping_item['name'],
@@ -83,8 +86,8 @@ class Todoist:
                 section_id=self.sections[shopping_item['aisle']].id
             )
             
-            self.save_values['shopping_list'].add(task.id)
-            self.save_progress()
+            self.save_values[TASKS].append(task.id)
+        self.save_progress()
             
             
     def get_shopping_completed_tasks(self):
@@ -94,7 +97,11 @@ class Todoist:
         completed_tasks = []
         uncompleted_tasks = []
         for task_id in self.save_values[TASKS]:
-            task = self.session.get_task(task_id=task_id)
+            try:
+                task = self.session.get_task(task_id=task_id)
+            except HTTPError:
+                # Task was deleted
+                continue
             
             if task.is_completed:
                 completed_tasks.append(task)
